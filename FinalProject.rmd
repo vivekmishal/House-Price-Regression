@@ -1,0 +1,574 @@
+---
+title: "House Prices: Advanced Regression Techniques"
+author: "Preethi, Sukanksha and Vivek"
+date: "April 26, 2018"
+output: 
+  html_document:
+    number_sections: yes
+    theme: readable
+    highlight: tango
+    toc: yes
+    fig_width: 15
+    fig_height: 10
+---
+
+#Introduction
+>The Kaggle competition is to create generalizable model with low variance which predicts sales price of residential homes in Ames, Iowa. The data is partitioned into 50-50 set, naming train and test data set. The train data sets having total 81 variables with SalePrice as target variable and rest 79 are predictors (excluding ID since its unique to house# and is not good measurement for prediction) while test is having 80 variable(not having SalePrice). 
+
+>Libraries and Data Import
+
+```{r}
+#Import Library
+library(missForest)
+library(dplyr)
+library(caret)
+library(tidyverse)
+library(ggplot2)
+
+
+#Data Extraction
+getwd()
+test <- read.csv("test.csv",stringsAsFactors = TRUE)
+train <- read.csv("train.csv",stringsAsFactors = TRUE)
+```
+
+
+#Data modeling and cleaning
+>1. In our train and test dataset,we need to transform NA values with meaningful values for some variables-Alley,Fireplaces,PoolQC ,Fence ,BsmtQual, BsmtCond,BsmtExposure, BsmtFinType1,BsmtFinType2,GarageType,GarageCond,GarageFinish,GarageQual ,MiscFeature
+
+```{r}
+#Data Transformation
+
+#1.For Alley variable, converting NA to NoAlley as NA refers to NoAlley from metadata.
+train$Alley <- as.character(train$Alley)
+train$Alley <- ifelse(is.na(train$Alley),'NoAlley', train$Alley)
+train$Alley <- factor(train$Alley)
+
+test$Alley <- as.character(test$Alley)
+test$Alley <- ifelse(is.na(test$Alley),'NoAlley', test$Alley)
+test$Alley <- factor(test$Alley)
+
+
+#2.For PoolQC variable, converting NA to NoPool as NA refers to NoPool from metadata.
+train$PoolQC <- as.character(train$PoolQC)
+train$PoolQC <- ifelse(is.na(train$PoolQC),'NoPool', train$PoolQC)
+train$PoolQC <- factor(train$PoolQC)
+
+
+test$PoolQC <- as.character(test$PoolQC)
+test$PoolQC <- ifelse(is.na(test$PoolQC),'NoPool', test$PoolQC)
+test$PoolQC <- factor(test$PoolQC)
+
+
+
+#3.For FireplaceQu variable, converting NA to NoFireplace as NA refers to NoFireplace from metadata.
+train$FireplaceQu <- as.character(train$FireplaceQu)
+train$FireplaceQu <- ifelse(is.na(train$FireplaceQu),'NoFireplace', train$FireplaceQu)
+train$FireplaceQu <- factor(train$FireplaceQu)
+
+
+test$FireplaceQu <- as.character(test$FireplaceQu)
+test$FireplaceQu <- ifelse(is.na(test$FireplaceQu),'NoFireplace', test$FireplaceQu)
+test$FireplaceQu <- factor(test$FireplaceQu)
+
+
+#4.For Fence variable, converting NA to NoFence as NA refers to NoFence from metadata.
+train$Fence <- as.character(train$Fence)
+train$Fence <- ifelse(is.na(train$Fence),'NoFence',train$Fence)
+train$Fence <- factor(train$Fence)
+
+
+test$Fence <- as.character(test$Fence)
+test$Fence <- ifelse(is.na(test$Fence),'NoFence',test$Fence)
+test$Fence <- factor(test$Fence)
+
+
+#5.Converting NA to NoMisc as NA refers to NoMisc from metadata.
+train$MiscFeature <- as.character(train$MiscFeature)
+train$MiscFeature <- ifelse(is.na(train$MiscFeature),'NoMisc',train$MiscFeature)
+train$MiscFeature <- factor(train$MiscFeature)
+
+
+test$MiscFeature <- as.character(test$MiscFeature)
+test$MiscFeature <- ifelse(is.na(test$MiscFeature),'NoMisc',test$MiscFeature)
+test$MiscFeature <- factor(test$MiscFeature)
+
+
+#6.For BsmtQual variable, converting NA to NoBasemet as NA refers to NoBasement from metadata.
+train$BsmtQual <- as.character(train$BsmtQual)
+train$BsmtQual <- ifelse(is.na(train$BsmtQual),'NoBasement',train$BsmtQual)
+train$BsmtQual <- factor(train$BsmtQual)
+
+
+test$BsmtQual <- as.character(test$BsmtQual)
+test$BsmtQual <- ifelse(is.na(test$BsmtQual),'NoBasement',test$BsmtQual)
+test$BsmtQual <- factor(test$BsmtQual)
+
+
+
+#7.For BsmtCond, converting NA to NoBasemet as NA refers to NoBasement from metadata.
+train$BsmtCond <- as.character(train$BsmtCond)
+train$BsmtCond <- ifelse(is.na(train$BsmtCond),'NoBasement',train$BsmtCond)
+train$BsmtCond <- factor(train$BsmtCond)
+
+
+test$BsmtCond <- as.character(test$BsmtCond)
+test$BsmtCond <- ifelse(is.na(test$BsmtCond),'NoBasement',test$BsmtCond)
+test$BsmtCond <- factor(test$BsmtCond)
+
+
+#8.For BsmtExposure, converting NA to NoBasemet as NA refers to NoBasement from metadata.
+train$BsmtExposure <- as.character(train$BsmtExposure)
+train$BsmtExposure <- ifelse(is.na(train$BsmtExposure),'NoBasement',train$BsmtExposure)
+train$BsmtExposure <- factor(train$BsmtExposure)
+
+
+test$BsmtExposure <- as.character(test$BsmtExposure)
+test$BsmtExposure <- ifelse(is.na(test$BsmtExposure),'NoBasement',test$BsmtExposure)
+test$BsmtExposure <- factor(test$BsmtExposure)
+
+
+#9.For BsmtFinType1, converting NA to NoBasemet as NA refers to NoBasement from metadata.
+train$BsmtFinType1 <- as.character(train$BsmtFinType1)
+train$BsmtFinType1 <- ifelse(is.na(train$BsmtFinType1),'NoBasement',train$BsmtFinType1)
+train$BsmtFinType1 <- factor(train$BsmtFinType1)
+
+
+test$BsmtFinType1 <- as.character(test$BsmtFinType1)
+test$BsmtFinType1 <- ifelse(is.na(test$BsmtFinType1),'NoBasement',test$BsmtFinType1)
+test$BsmtFinType1 <- factor(test$BsmtFinType1)
+
+
+#10.For BsmtFinType2, converting NA to NoBasemet as NA refers to NoBasement from metadata.
+train$BsmtFinType2 <- as.character(train$BsmtFinType2)
+train$BsmtFinType2 <- ifelse(is.na(train$BsmtFinType2),'NoBasement',train$BsmtFinType2)
+train$BsmtFinType2 <- factor(train$BsmtFinType2)
+
+
+test$BsmtFinType2 <- as.character(test$BsmtFinType2)
+test$BsmtFinType2 <- ifelse(is.na(test$BsmtFinType2),'NoBasement',test$BsmtFinType2)
+test$BsmtFinType2 <- factor(test$BsmtFinType2)
+
+
+#11.For GarageType, converting NA to NoGarageType as NA refers to NoGarage from metadata.
+train$GarageType <- as.character(train$GarageType)
+train$GarageType <- ifelse(is.na(train$GarageType),'NoGarage',train$GarageType)
+train$GarageType <- factor(train$GarageType)
+
+
+test$GarageType <- as.character(test$GarageType)
+test$GarageType <- ifelse(is.na(test$GarageType),'NoGarage',test$GarageType)
+test$GarageType <- factor(test$GarageType)
+
+
+#12.For GarageCond, Converting NA to NoGarage as NA refers to NoGarage from metadata.
+train$GarageCond <- as.character(train$GarageCond)
+train$GarageCond <- ifelse(is.na(train$GarageCond),'NoGarage',train$GarageCond)
+train$GarageCond <- factor(train$GarageCond)
+
+
+test$GarageCond <- as.character(test$GarageCond)
+test$GarageCond <- ifelse(is.na(test$GarageCond),'NoGarage',test$GarageCond)
+test$GarageCond <- factor(test$GarageCond)
+
+
+#13.For GarageFinish, Converting NA to NoGarage as NA refers to NoGarage from metadata.
+train$GarageFinish <- as.character(train$GarageFinish)
+train$GarageFinish <- ifelse(is.na(train$GarageFinish),'NoGarage',train$GarageFinish)
+train$GarageFinish <- factor(train$GarageFinish)
+
+
+test$GarageFinish <- as.character(test$GarageFinish)
+test$GarageFinish <- ifelse(is.na(test$GarageFinish),'NoGarage',test$GarageFinish)
+test$GarageFinish <- factor(test$GarageFinish)
+
+
+
+#14.For GGarageQual, converting NA to NoGarage as NA refers to NoGarage from metadata.
+train$GarageQual <- as.character(train$GarageQual)
+train$GarageQual <- ifelse(is.na(train$GarageQual),'NoGarage',train$GarageQual)
+train$GarageQual <- factor(train$GarageQual)
+
+
+test$GarageQual <- as.character(test$GarageQual)
+test$GarageQual <- ifelse(is.na(test$GarageQual),'NoGarage',test$GarageQual)
+test$GarageQual <- factor(test$GarageQual)
+
+
+```
+
+
+>2. Combining both test and train data by removing SalesPrice variable from train data
+
+```{r}
+#binding two dataframes
+
+SP <- train[,c("Id", "SalePrice")]
+
+# removing SalePrice variable to bind train and test
+newtrain = subset(train, select = -c(SalePrice) )
+# binding train and test
+join <- rbind(newtrain,test)
+
+```
+
+>3. Used missForest function for NA imputation
+
+```{r}
+joinmis <- missForest(join)$ximp
+summary(joinmis)
+``` 
+
+>5. After imputing NA, dividing the data again into train and test set using the row count
+
+```{r}
+trainmis <- joinmis %>%
+  slice(1:1460)
+
+trainmis$SalePrice <- SP
+
+testmis <- joinmis %>%
+  slice(1461:2919)
+
+summary(joinmis)
+```
+
+>6. Finding variable which have nearzero variance
+
+```{r}
+nearZeroVar(joinmis,  names= T)
+```
+
+>7. Removing variables which have near zero variance
+
+```{r}
+joinmis = subset(joinmis, select = -c(Street,Alley,LandContour,Utilities,LandSlope,Condition2,RoofMatl,
+                                        BsmtCond,BsmtFinType2,BsmtFinSF2,Heating,LowQualFinSF,OpenPorchSF,
+                                        EnclosedPorch,X3SsnPorch,ScreenPorch,KitchenAbvGr,Functional,
+                                        PoolArea,PoolQC,MiscFeature,MiscVal))
+names(joinmis)
+```
+
+>8.Extracting train and test set from join(imputed) dataset 
+
+```{r}
+trainmis <- joinmis%>%
+slice(1:1460)
+  
+   
+#extracting test set from join(imputed) dataset
+testmis <- joinmis %>%
+slice(1461:2919)
+
+trainmisf <- merge(trainmis,SP,by="Id")
+
+```
+>9. To check the skewness of the output variable we decided to plot histogram. 
+As shown in figure 1, the results showed us that the outcome variable is right skew and it is not normally  distributed.
+
+```{r}
+
+ggplot(data = train , aes(x = (train$SalePrice)))+
+geom_histogram(fill = 'blue',col = 'white' , alpha=0.8)+
+geom_vline(xintercept = median(train$SalePrice), col = 'red',size = 1)+
+geom_vline(xintercept = mean(train$SalePrice),col = 'red', size = 1,lty = 2)+
+labs(title = "Histogram for Sale Price", x="Sale Price", y="Count")+
+annotate( "text",label = "- - - - Mean", x = 500000, y = 300 ,col = 'red')+
+annotate( "text",label = "___ Median ", x = 500000, y = 280, col = 'red')
+```
+>10. .	To make the distribution normal, we logged the outcome variable SalePrice. The result was
+plotted using ggplot and found to be normally distributed, as shown in Figure 2.
+
+```{r}
+ggplot(data = train , aes(x = log(train$SalePrice)))+
+geom_histogram(fill = 'blue',col = 'white' , alpha=0.8)+
+geom_vline(xintercept = median(log(train$SalePrice)), col = 'red',size = 1)+
+geom_vline(xintercept = mean(log(train$SalePrice)),col = 'red', size = 1,lty = 2)+
+labs(title = "Histogram for log Sale Price", x="Sale Price", y="Count")+
+annotate( "text",label = "- - - - Mean", x = 13, y = 300 ,col = 'red')+
+annotate( "text",label = "___ Median ", x = 13, y = 280, col = 'red')
+```
+>11.. Create the model for the outcome variable log(SalePrice)
+
+#Model and model development
+```{r}
+##RMSE Function
+rmse <- function(actual, predicted) sqrt(mean((actual- predicted)^2))
+
+##R Squared Function
+r2 <- function(actual, fitted){
+  RSS <- mean((actual - fitted)^2)
+  TSS <- mean((actual - mean(actual))^2)
+  1 - RSS/TSS
+}
+
+
+##Running Linear Regression Model 
+tc = trainControl("repeatedcv", number = 10, repeats = 10)
+set.seed(418)
+(lmlogmodel <-  train(log(SalePrice) ~ .,
+                         data = trainmisf,
+                         method = "lm",
+                         preProcess= c("center","scale"),
+                         trControl = tc) )
+
+#Out of sample model performance
+
+##log RMSE=  0.1471565  Rsquared=0.8651398
+
+
+#To find the in sample performance
+
+
+rmse(log(trainmisf$SalePrice),fitted(lmlogmodel))
+
+r2(log(trainmisf$SalePrice),fitted(lmlogmodel))
+
+summary(lm(log(SalePrice) ~ .,data = trainmisf))
+
+#In sample performance
+
+##log RMSE=  0.114383  Rsquared=0.9179476
+
+
+# We find that the in sample Rsquared value is more than the out of sample Rsquared ,therefore there is high variance. Hence the model is overfitting
+#This means lm model is not performing well 
+
+
+##Running lasso model
+
+#As there were many variables we decided to implement LASSO regression model so that we could cut down on the insignificant variables. LASSO has the property of shrinking the coefficients of the insignificant variables close to zero.
+set.seed(418)
+
+(lassologmodel <-  train(log(SalePrice) ~ .,
+                      data = trainmisf,
+                      method = "lasso",
+                      preProcess= c("center","scale"),
+                      trControl = tc) )
+
+#Out of sample performance
+
+#RMSE = 0.1538496
+#Rsquared  = 0.8537313
+
+
+#In sample performance
+
+rmse(log(trainmisf$SalePrice),fitted(lassologmodel))
+r2(log(trainmisf$SalePrice),fitted(lassologmodel))
+
+#RMSE = 0.1168565
+#Rsquared  = 0.9143604
+
+#Lasso model neither shrink the data nor have improved out of sample performance. So we try with glmnet model
+
+##Best model
+
+(glmnetlogmodel <-  train(log(SalePrice) ~ .,
+                        data = trainmisf,
+                        method = "glmnet",
+                        preProcess= c("center","scale"),
+                        trControl = tc))
+
+#Out of sample performance
+
+# log RMSE =0.1431038
+# RMSE =0.8712661
+
+
+#In sample performance
+
+rmse(log(trainmisf$SalePrice),fitted(glmnetlogmodel))
+r2(log(trainmisf$SalePrice),fitted(glmnetlogmodel))
+
+# log RMSE =0.125062
+# RMSE =0.9019112
+
+#The final model used by glmnet is the combination of ridge and lasso alpha value 0.55. This combination of variable perform pretty well out of sample with R squared value of 0.8712661 and logged RMSE 0.1431038
+
+#Checking for important variables
+varImp(glmnetlogmodel)
+
+
+# In order to reduce the log rmse value, we create a model with interaction between most significant variables, ie 'OverallQual' and 'YearBuilt'. Also we take log of GrLivArea since it is left skewed. 
+
+#Model with interaction
+(newglmnetlogmodel <-  train(log(SalePrice) ~ OverallQual +
+                                log(GrLivArea) +
+                                GarageCars +
+                                OverallCond +
+                                YearBuilt +
+                                BsmtFullBath +
+                                TotRmsAbvGrd +
+                                BsmtFinType1 +
+                                CentralAir +
+                                MSZoning +
+                                YearRemodAdd +
+                                FullBath +
+                                TotalBsmtSF +
+                                FireplaceQu+
+                                LotArea+
+                                MSSubClass+
+                                LotFrontage +
+                                LotShape +
+                                LotConfig +
+                                Neighborhood +
+                                Condition1+
+                                BldgType +
+                                HouseStyle +
+                                RoofStyle +
+                                Exterior1st +
+                                Exterior2nd+
+                                MasVnrType +
+                                MasVnrArea +
+                                ExterQual +
+                                ExterCond +
+                                Foundation +
+                                BsmtQual +
+                                BsmtExposure +
+                                BsmtFinSF1 +
+                                BsmtUnfSF +
+                                HeatingQC+
+                                Electrical+
+                                X1stFlrSF +
+                                X2ndFlrSF +
+                                Fireplaces +
+                                GarageYrBlt +
+                                GarageFinish +
+                                GarageArea +
+                                GarageQual +
+                                GarageCond +
+                                PavedDrive +
+                                WoodDeckSF +
+                                Fence +
+                                MoSold +
+                                YrSold +
+                                SaleType +
+                                SaleCondition +
+                                OverallQual * YearBuilt,
+                              data = trainmisf,
+                              method = "glmnet",
+                              preProcess= c("center","scale"),
+                              trControl = tc))
+
+#Out of sample model performance
+
+#log(RMSE) =0.1350450
+#Rsquared =0.8855923
+
+#In sample performance
+
+rmse(log(trainmisf$SalePrice),fitted(newglmnetlogmodel))
+r2(log(trainmisf$SalePrice),fitted(newglmnetlogmodel))
+#log(RMSE) =0.11212007
+#Rsquared =0.9078747
+
+# To reduce the log rmse value, we used logical method to find the most significant variable next to overall qualiy.We find that Full Bath and Neighborhood as significant variables. Therefore we model using an interaction between those. Also taking log of the variables,GrLivArea,LotFrontage, X1stFlrSF,LotArea.
+
+((newglmnetlogmodel1 <-  train(log(SalePrice) ~ OverallQual +
+                                 log(GrLivArea) +
+                                 GarageCars + 
+                                 OverallCond + 
+                                 YearBuilt + 
+                                 BsmtFullBath +
+                                 TotRmsAbvGrd +
+                                 BsmtFinType1 +
+                                 CentralAir +
+                                 MSZoning +
+                                 YearRemodAdd +
+                                 FullBath +
+                                 (TotalBsmtSF) +
+                                 FireplaceQu+
+                                 log(LotArea)+
+                                 MSSubClass+
+                                 log(LotFrontage)+
+                                 LotShape +
+                                 LotConfig +
+                                 Neighborhood +
+                                 Condition1+
+                                 BldgType +
+                                 HouseStyle +
+                                 RoofStyle + 
+                                 Exterior1st +
+                                 Exterior2nd+
+                                 (MasVnrType) +
+                                 (MasVnrArea) +
+                                 ExterQual +
+                                 ExterCond +
+                                 Foundation + 
+                                 BsmtQual + 
+                                 BsmtExposure +
+                                 BsmtFinSF1 +
+                                 (BsmtUnfSF) +
+                                 HeatingQC+
+                                 Electrical+
+                                 log(X1stFlrSF )+ 
+                                 (X2ndFlrSF) +
+                                 Fireplaces +
+                                 GarageYrBlt +
+                                 GarageFinish +
+                                 GarageArea + 
+                                 GarageQual +
+                                 GarageCond +
+                                 PavedDrive +
+                                 (WoodDeckSF) +
+                                 Fence +
+                                 MoSold +
+                                 YrSold +
+                                 SaleType +
+                                 SaleCondition +
+                                 FullBath * Neighborhood,
+                               data = trainmisf,
+                               method = "glmnet",
+                               preProcess= c("center","scale"),
+                               trControl = tc)))
+
+#Out of sample model performance
+
+#log(RMSE) =0.1249806
+#Rsquared =0.8870376
+
+#In sample performance
+
+rmse(log(trainmisf$SalePrice),fitted(newglmnetlogmodel1))
+r2(log(trainmisf$SalePrice),fitted(newglmnetlogmodel1))
+
+#log(RMSE) =0.1192373
+#Rsquared =0.9108353
+
+#We observe that the above log log model with interaction between FullBath and Neighborhood performs best compared to other models. This is the final model that we used for predicting in the test dataset.
+
+```
+
+>12.. Plotting an interaction graph
+
+```{r}
+t<-trainmisf
+t$FullBath<-factor(t$FullBath)
+
+ggplot(t, aes(log(GrLivArea),log(SalePrice),col=FullBath,size=OverallQual))+
+geom_point(alpha=0.5)+
+stat_smooth(method="lm",se=F)+
+facet_wrap(~FullBath)+
+labs(title = "Log(Sale Price)~Log(Ground Living Area),varying by 'Overall Quality' and number of 'FullBath'",x= 'Log(Ground Living Area)', y='Log(SalePrice)')
+
+```
+>13.. Predicting in the test dataset
+
+#Predicting using the best model
+```{r}
+
+#Predicting SalePrice in testmis dataset
+testmis$SalePrice <- exp(predict(newglmnetlogmodel1,testmis))
+
+#Feed the output value to kaggle
+
+kaggle <- testmis[,c("Id","SalePrice")]
+write.csv(kaggle,file="output.csv")
+getwd()
+
+#We found the below values from Kaggle
+## Rank = 1173 and logrmse = 0.12697
+
+```
+
